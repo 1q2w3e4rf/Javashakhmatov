@@ -30,6 +30,8 @@ public class ChessGUI extends JFrame {
     private int selectedCol = -1;
     private List<int[]> validMoves = new ArrayList<>();
     private boolean[][] pawnMoved = new boolean[8][8];
+    private boolean whiteQueenExists = true;
+    private boolean blackQueenExists = true;
 
     public ChessGUI() {
         setTitle("Java Chess");
@@ -69,13 +71,25 @@ public class ChessGUI extends JFrame {
                         for (int[] move : validMoves) {
                             if (move[0] == row && move[1] == col) {
                                 movePiece(selectedRow, selectedCol, row, col);
-                                char capturedKing = isKingCaptured();
-                                if (capturedKing != ' ') {
-                                    String winner = (capturedKing == 'k' ? "White" : "Black");
-                                    JOptionPane.showMessageDialog(ChessGUI.this, winner + " wins!");
-                                    resetGame();
-                                } else{
-                                    whiteTurn = !whiteTurn;
+
+                                if ((row == 0 || row == 7) && Character.toLowerCase(board[row][col]) == 'p') {
+
+                                    char potentiallyCapturedKing = checkPotentialKingCapture(row, col, whiteTurn);
+                                    if (potentiallyCapturedKing != ' ') {
+                                        promotePawnToQueen(row, col);
+                                    } else {
+                                        promotePawn(row, col);
+                                    }
+
+                                } else {
+                                    char capturedKing = isKingCaptured();
+                                    if (capturedKing != ' ') {
+                                        String winner = (capturedKing == 'k' ? "White" : "Black");
+                                        JOptionPane.showMessageDialog(ChessGUI.this, winner + " wins!");
+                                        resetGame();
+                                    } else {
+                                        whiteTurn = !whiteTurn;
+                                    }
                                 }
 
                                 selectedRow = -1;
@@ -103,6 +117,105 @@ public class ChessGUI extends JFrame {
         setVisible(true);
     }
 
+    private char checkPotentialKingCapture(int row, int col, boolean isWhiteTurn) {
+        char originalPiece = board[row][col];
+        char queenPiece = isWhiteTurn ? 'Q' : 'q';
+        board[row][col] = queenPiece;
+
+        char capturedKing = isKingCaptured();
+
+        board[row][col] = originalPiece;
+
+        return capturedKing;
+    }
+
+    private void promotePawnToQueen(int row, int col) {
+        char queenPiece = whiteTurn ? 'Q' : 'q';
+        board[row][col] = queenPiece;
+
+        if (queenPiece == 'Q') whiteQueenExists = true;
+        if (queenPiece == 'q') blackQueenExists = true;
+
+        char capturedKing = isKingCaptured();
+        if (capturedKing != ' ') {
+            String winner = (capturedKing == 'k' ? "White" : "Black");
+            JOptionPane.showMessageDialog(ChessGUI.this, winner + " wins!");
+            resetGame();
+        } else {
+            whiteTurn = !whiteTurn;
+        }
+
+        repaint();
+    }
+
+
+    private void promotePawn(int row, int col) {
+        String[] options;
+        if (whiteTurn) {
+            options = whiteQueenExists ? new String[]{"Rook", "Knight", "Bishop"} : new String[]{"Queen", "Rook", "Knight", "Bishop"};
+        } else {
+            options = blackQueenExists ? new String[]{"Rook", "Knight", "Bishop"} : new String[]{"Queen", "Rook", "Knight", "Bishop"};
+        }
+
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                "Promote pawn to:",
+                "Pawn Promotion",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                options,
+                options[0]);
+
+        char newPiece;
+        if (whiteTurn) {
+            switch (choice) {
+                case 0:
+                    newPiece = (whiteQueenExists) ? 'R' : 'Q';
+                    break;
+                case 1:
+                    newPiece = 'N';
+                    break;
+                case 2:
+                    newPiece = 'B';
+                    break;
+                default:
+                    newPiece = 'Q'; // Default
+                    break;
+            }
+        } else {
+            switch (choice) {
+                case 0:
+                    newPiece = (blackQueenExists) ? 'r' : 'q';
+                    break;
+                case 1:
+                    newPiece = 'n';
+                    break;
+                case 2:
+                    newPiece = 'b';
+                    break;
+                default:
+                    newPiece = 'q'; // Default
+                    break;
+            }
+        }
+
+        board[row][col] = newPiece;
+        if (newPiece == 'Q') whiteQueenExists = true;
+        if (newPiece == 'q') blackQueenExists = true;
+
+        char capturedKing = isKingCaptured();
+        if (capturedKing != ' ') {
+            String winner = (capturedKing == 'k' ? "White" : "Black");
+            JOptionPane.showMessageDialog(ChessGUI.this, winner + " wins!");
+            resetGame();
+        } else {
+            whiteTurn = !whiteTurn;
+        }
+
+        repaint();
+    }
+
     private void resetGame() {
         board = new char[][]{
                 {'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'},
@@ -119,6 +232,8 @@ public class ChessGUI extends JFrame {
         selectedCol = -1;
         validMoves.clear();
         pawnMoved = new boolean[8][8];
+        whiteQueenExists = true;
+        blackQueenExists = true;
     }
 
     private boolean isCorrectTurn(char piece) {
@@ -127,8 +242,21 @@ public class ChessGUI extends JFrame {
     }
 
     private void movePiece(int fromRow, int fromCol, int toRow, int toCol) {
-        board[toRow][toCol] = board[fromRow][fromCol];
+        char piece = board[fromRow][fromCol];
+        board[toRow][toCol] = piece;
         board[fromRow][fromCol] = ' ';
+
+        if (Character.toLowerCase(piece) == 'k') {
+            if (Math.abs(fromCol - toCol) == 2) {
+                if (toCol > fromCol) {
+                    board[toRow][toCol - 1] = board[toRow][7];
+                    board[toRow][7] = ' ';
+                } else {
+                    board[toRow][toCol + 1] = board[toRow][0];
+                    board[toRow][0] = ' ';
+                }
+            }
+        }
     }
 
     private char isKingCaptured() {
@@ -137,12 +265,12 @@ public class ChessGUI extends JFrame {
 
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
-                if(board[i][j] == 'k') blackKingPresent = true;
-                if(board[i][j] == 'K') whiteKingPresent = true;
+                if (board[i][j] == 'k') blackKingPresent = true;
+                if (board[i][j] == 'K') whiteKingPresent = true;
             }
         }
         if (!whiteKingPresent) return 'K';
-        if(!blackKingPresent) return 'k';
+        if (!blackKingPresent) return 'k';
         return ' ';
     }
 
@@ -185,12 +313,14 @@ public class ChessGUI extends JFrame {
     private List<int[]> getValidMoves(int fromRow, int fromCol) {
         List<int[]> moves = new ArrayList<>();
         char piece = board[fromRow][fromCol];
+        boolean isWhite = Character.isUpperCase(piece);
+
         if (piece == ' ') return moves;
 
         for (int toRow = 0; toRow < 8; toRow++) {
             for (int toCol = 0; toCol < 8; toCol++) {
-                if (isValidMove(fromRow, fromCol, toRow, toCol, whiteTurn)) {
-                    if (board[toRow][toCol] == ' ' || !isCorrectTurn(board[toRow][toCol])) {
+                if (isValidMove(fromRow, fromCol, toRow, toCol)) {
+                    if (board[toRow][toCol] == ' ' || (Character.isUpperCase(board[toRow][toCol]) != isWhite)) {
                         moves.add(new int[]{toRow, toCol});
                     }
                 }
@@ -199,86 +329,102 @@ public class ChessGUI extends JFrame {
         return moves;
     }
 
-    private boolean isValidMove(int fromRow, int fromCol, int toRow, int toCol, boolean isWhiteTurn) {
+    private boolean isValidMove(int fromRow, int fromCol, int toRow, int toCol) {
         char piece = board[fromRow][fromCol];
         if (piece == ' ') return false;
 
         int rowDiff = Math.abs(toRow - fromRow);
         int colDiff = Math.abs(toCol - fromCol);
+        int rowDir = Integer.compare(toRow, fromRow);
+        int colDir = Integer.compare(toCol, fromCol);
 
+        boolean isWhite = Character.isUpperCase(piece);
+
+        if ((isWhite && !whiteTurn) || (!isWhite && whiteTurn)) {
+            return false;
+        }
 
         switch (Character.toLowerCase(piece)) {
             case 'p':
-                int startRow = isWhiteTurn ? 6 : 1;
-                int dir = isWhiteTurn ? -1 : 1;
+                int startRow = isWhite ? 6 : 1;
+                int dir = isWhite ? -1 : 1;
 
-                if (colDiff == 0 && fromRow + dir == toRow && board[toRow][toCol] == ' ') return true;
-                if (colDiff == 0 && !pawnMoved[fromRow][fromCol] && fromRow + 2 * dir == toRow && board[toRow][toCol] == ' ' && board[fromRow + dir][toCol] == ' ')
+                if (colDiff == 0 && fromRow + dir == toRow && board[toRow][toCol] == ' ') {
                     return true;
-                if (colDiff == 1 && fromRow + dir == toRow && ((isWhiteTurn && Character.isLowerCase(board[toRow][toCol])) || (!isWhiteTurn && Character.isUpperCase(board[toRow][toCol]))))
-                    return true;
+                }
 
+                if (colDiff == 0 && fromRow == startRow && fromRow + 2 * dir == toRow && board[toRow][toCol] == ' ' && board[fromRow + dir][toCol] == ' ') {
+                    return true;
+                }
+
+                if (colDiff == 1 && fromRow + dir == toRow && board[toRow][toCol] != ' ' && (Character.isUpperCase(board[toRow][toCol]) != isWhite)) {
+                    if (board[toRow][toCol] == (isWhite ? 'k' : 'K')) {
+                        return true;
+                    }
+                    return true;
+                }
                 break;
+
             case 'r':
                 if (rowDiff == 0 || colDiff == 0) {
-                    int rowDir = toRow > fromRow ? 1 : toRow < fromRow ? -1 : 0;
-                    int colDir = toCol > fromCol ? 1 : toCol < fromCol ? -1 : 0;
-
-                    int i = fromRow + rowDir;
-                    int j = fromCol + colDir;
-                    while (i != toRow || j != toCol) {
-                        if (board[i][j] != ' ') {
-                            return false;
-                        }
-                        i += rowDir;
-                        j += colDir;
+                    if (!isPathClear(fromRow, fromCol, toRow, toCol)) {
+                        return false;
                     }
                     return true;
                 }
                 break;
+
             case 'n':
-                if ((rowDiff == 2 && colDiff == 1) || (rowDiff == 1 && colDiff == 2)) return true;
+                if ((rowDiff == 2 && colDiff == 1) || (rowDiff == 1 && colDiff == 2)) {
+                    return true;
+                }
                 break;
+
             case 'b':
                 if (rowDiff == colDiff) {
-                    int rowDir = toRow > fromRow ? 1 : toRow < fromRow ? -1 : 0;
-                    int colDir = toCol > fromCol ? 1 : toCol < fromCol ? -1 : 0;
-
-                    int i = fromRow + rowDir;
-                    int j = fromCol + colDir;
-                    while (i != toRow || j != toCol) {
-                        if (board[i][j] != ' ') {
-                            return false;
-                        }
-                        i += rowDir;
-                        j += colDir;
+                    if (!isPathClear(fromRow, fromCol, toRow, toCol)) {
+                        return false;
                     }
                     return true;
                 }
                 break;
+
             case 'q':
                 if (rowDiff == 0 || colDiff == 0 || rowDiff == colDiff) {
-                    int rowDir = toRow > fromRow ? 1 : toRow < fromRow ? -1 : 0;
-                    int colDir = toCol > fromCol ? 1 : toCol < fromCol ? -1 : 0;
-
-                    int i = fromRow + rowDir;
-                    int j = fromCol + colDir;
-                    while (i != toRow || j != toCol) {
-                        if (board[i][j] != ' ') {
-                            return false;
-                        }
-                        i += rowDir;
-                        j += colDir;
+                    if (!isPathClear(fromRow, fromCol, toRow, toCol)) {
+                        return false;
                     }
                     return true;
                 }
                 break;
+
             case 'k':
-                if (rowDiff <= 1 && colDiff <= 1) return true;
+                if (rowDiff <= 1 && colDiff <= 1) {
+                    return true;
+                }
                 break;
         }
+
         return false;
     }
+
+    private boolean isPathClear(int fromRow, int fromCol, int toRow, int toCol) {
+        int rowDir = Integer.compare(toRow, fromRow);
+        int colDir = Integer.compare(toCol, fromCol);
+        int currentRow = fromRow + rowDir;
+        int currentCol = fromCol + colDir;
+
+        while (currentRow != toRow || currentCol != toCol) {
+            if (board[currentRow][currentCol] != ' ') {
+                return false;
+            }
+            currentRow += rowDir;
+            currentCol += colDir;
+        }
+
+        return true;
+    }
+
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ChessGUI::new);
